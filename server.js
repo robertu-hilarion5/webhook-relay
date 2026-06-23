@@ -15,6 +15,15 @@ const targets = (
 
 const responseBodyLogLimit = Number(process.env.RESPONSE_BODY_LOG_LIMIT || 5000);
 
+class TargetResponseError extends Error {
+  constructor(url, response) {
+    super(`Target ${url} returned HTTP ${response.status} ${response.statusText}`);
+    this.name = "TargetResponseError";
+    this.url = url;
+    this.response = response;
+  }
+}
+
 async function readResponseBodyForLog(response) {
   const contentType = response.headers.get("content-type") || "";
   const body = await response.text();
@@ -60,13 +69,19 @@ app.post("/webhook", async (req, res) => {
 
       const responseBody = await readResponseBodyForLog(response);
 
-      return {
+      const targetResponse = {
         ok: response.ok,
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
         ...responseBody
       };
+
+      if (targetResponse.status !== 200) {
+        throw new TargetResponseError(url, targetResponse);
+      }
+
+      return targetResponse;
     })
   );
 
@@ -93,7 +108,11 @@ app.post("/webhook", async (req, res) => {
 
     console.error(
       `[${new Date().toISOString()}] Forward failed ${target}`,
-      result.reason
+      result.reason.response || {
+        message: result.reason.message,
+        name: result.reason.name,
+        stack: result.reason.stack
+      }
     );
   });
 });
