@@ -21,7 +21,7 @@ app.post("/webhook", async (req, res) => {
     `[${new Date().toISOString()}] Webhook received`
   );
 
-  // Dem Payment-Anbieter sofort antworten
+  // sofort antworten
   res.status(200).send("OK");
 
   const body = req.body;
